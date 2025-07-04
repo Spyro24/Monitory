@@ -14,3 +14,8 @@ Monitory_Client_Source/Monitory_Client/Build/Android/src/
 Monitory_Client_Source/Monitory_Client/Build/Android/res/values/
 
 Monitory_Server_Linux_Source/Monitory_Server_Linux/obj/
+
+Monitory_Server_Linux_Source/monitory_server_linux_py/turbostat_info_util.txt
+
+Monitory_Server_Linux_Source/monitory_server_linux_py/turbostat_info1_util.txt
+Monitory_Server_Linux_Source/monitory_server_linux_py/exported_data.json
