@@ -244,20 +244,16 @@ def collect_cpu_info():
 	
 	global export_stats_json
 	export_stats_json["Cpu_Utility_Total"] = avg_util
-	export_stats_json["Cpu_Utility_Thread"] = []
-	
 	data = f"Cpu_Utility:Total:{avg_util}:0:100|"
 	for i in range(len(utils)):
 		data += f"Cpu_Utility:{i}:{utils[i]}:0:100|"
-		export_stats_json["Cpu_Utility_Thread"].append(utils[i])
+		export_stats_json["Cpu_Utility_Thread"][i] = utils[i]
 	
 	export_stats_json["Cpu_Clock_Average"] = avg_mhz
-	export_stats_json["Cpu_Clock_Thread"] = []
-	
 	data += f"Cpu_Clock:Total:{avg_mhz}:0:100|"
 	for i in range(len(mhz_arr)):
 		data += f"Cpu_Clock:{i}:{mhz_arr[i]}:0:100|"
-		export_stats_json["Cpu_Clock_Thread"].append(mhz_arr[i])
+		export_stats_json["Cpu_Clock_Thread"][i] = mhz_arr[i]
 	
 	export_stats_json["Cpu_Wattage"] = watt
 	export_stats_json["Cpu_Temperature"] = tmp
@@ -273,14 +269,20 @@ def collect_cpu_memory():
 	memory_str_arr = memory_str.split("\n")
 	
 	data = ""
-	
-	if len(memory_str) > 1:
-		data += f"Cpu_Memory:Used:{(float)(memory_str_arr[1])}:0:100|"
-		data += f"Cpu_Memory:Available:{(float)(memory_str_arr[0]) - (float)(memory_str_arr[1])}:0:100|"
+	global export_stats_json
+	if len(memory_str) == 0:
+		data += f"Cpu_Memory:Used:0:0:100|"
+		data += f"Cpu_Memory:Available:0:0:100|"
+		export_stats_json["Cpu_Memory_Available"] = 0
+		export_stats_json["Cpu_Memory_Used"] = 0
 		
-		global export_stats_json
-		export_stats_json["Cpu_Memory_Available"] = (float)(memory_str_arr[0]) - (float)(memory_str_arr[1])
-		export_stats_json["Cpu_Memory_Used"] = memory_str_arr[1]
+		return data
+	
+	data += f"Cpu_Memory:Used:{(float)(memory_str_arr[1])}:0:100|"
+	data += f"Cpu_Memory:Available:{(float)(memory_str_arr[0]) - (float)(memory_str_arr[1])}:0:100|"
+		
+	export_stats_json["Cpu_Memory_Available"] = (float)(memory_str_arr[0]) - (float)(memory_str_arr[1])
+	export_stats_json["Cpu_Memory_Used"] = memory_str_arr[1]
 		
 	return data
 
@@ -324,13 +326,20 @@ def collect_disks():
 def collect_net():
 	net_str_arr = most_recent_ifstat_str.split("\n")
 	
+	data = ""
+	global export_stats_json
 	if len(net_str_arr) <= 1:
-		return ""
+		data += f"Upload_Speed:Total:0:0:0|"
+		export_stats_json["Net_Upload_Speed"] = 0
+	
+		data += f"Download_Speed:Total:0:0:0|"
+		export_stats_json["Net_Download_Speed"] = 0
+		
+		return data
 		
 	up = (float)(net_str_arr[1]) * 1024
 	down = (float)(net_str_arr[0]) * 1024
 	
-	global export_stats_json
 	data = f"Upload_Speed:Total:{up}:{up}:0|"
 	export_stats_json["Net_Upload_Speed"] = up
 	
@@ -342,11 +351,31 @@ def collect_net():
 def collect_gpu():
 	# check if nvidia gpu is available
 	has_gpu = run_command(_commands[Commands.HAS_NGPU])
+	data = ""
+	global export_stats_json
 	if not "/" in has_gpu:
-		return ""
+		data += f"Gpu_Utility:Clock:0:0:100|"
+		export_stats_json["Gpu_Utility"] = 0
+	
+		data += f"Gpu_Clock:Clock:0:0:100|"
+		export_stats_json["Gpu_Clock"] = 0
+	
+		data += f"Gpu_Memory:Available:0:0:100|"
+		export_stats_json["Gpu_Memory_Available"] = 0
+	
+		data += f"Gpu_Memory:Used:0:0:100|"
+		export_stats_json["Gpu_Memory_Used"] = 0
+	
+		data += f"Wattage:{GPU_NAME}:0:0:100|"
+		export_stats_json["Gpu_Wattage"] = 0
+	
+		data += f"Temperature:{GPU_NAME}:0:0:100|"
+		export_stats_json["Gpu_Temperature"] = 0
+		
+		return data
 	
 	util = run_command(_commands[Commands.GPU_UTIL])
-	data = f"Gpu_Utility:Clock:{(float)(util)}:0:100|"
+	data += f"Gpu_Utility:Clock:{(float)(util)}:0:100|"
 	export_stats_json["Gpu_Utility"] = (float)(util)
 	
 	clock = run_command(_commands[Commands.GPU_CLOCK])
@@ -392,6 +421,68 @@ def collect_pc_info():
 	
 	return data
 	
+def write_placeholder_data():
+	num_processors = run_command("nproc --all")
+		
+	data = ""
+	data += f"""Time_Now:00~00:0:0:0|"""
+	data += f"""Date_Now:01/01/2000:0:0:0|"""
+	
+	global export_stats_json
+	export_stats_json["Cpu_Utility_Thread"] = []
+	export_stats_json["Cpu_Clock_Thread"] = []
+	export_stats_json["Storage_Load"] = dict()
+	
+	data = f"Cpu_Utility:Total:0:0:100|"
+	export_stats_json["Cpu_Utility_Total"] = 0
+	for i in range((int)(num_processors)):
+		data += f"Cpu_Utility:{i}:0:0:100|"
+		export_stats_json["Cpu_Utility_Thread"].append(0)
+		export_stats_json["Cpu_Clock_Thread"].append(0)
+	
+	data += f"Cpu_Clock:Total:0:0:100|"
+	for i in range((int)(num_processors)):
+		data += f"Cpu_Clock:{i}:0:0:100|"
+		
+	export_stats_json["Cpu_Clock_Average"] = 0
+	export_stats_json["Cpu_Wattage"] = 0
+	export_stats_json["Cpu_Temperature"] = 0
+	
+	data += f"Wattage:{CPU_NAME}:0:0:100|"
+	data += f"Temperature:{CPU_NAME}:0:0:100|"
+	
+	data += f"Cpu_Memory:Used:0:0:100|"
+	data += f"Cpu_Memory:Available:0:0:100|"
+	export_stats_json["Cpu_Memory_Available"] = 0
+	export_stats_json["Cpu_Memory_Used"] = 0
+	
+	data += f"Upload_Speed:Total:0:0:0|"
+	export_stats_json["Net_Upload_Speed"] = 0
+	
+	data += f"Download_Speed:Total:0:0:0|"
+	export_stats_json["Net_Download_Speed"] = 0
+	
+	data += f"Gpu_Utility:Clock:0:0:100|"
+	export_stats_json["Gpu_Utility"] = 0
+	
+	data += f"Gpu_Clock:Clock:0:0:100|"
+	export_stats_json["Gpu_Clock"] = 0
+	
+	data += f"Gpu_Memory:Available:0:0:100|"
+	export_stats_json["Gpu_Memory_Available"] = 0
+	
+	data += f"Gpu_Memory:Used:0:0:100|"
+	export_stats_json["Gpu_Memory_Used"] = 0
+	
+	data += f"Wattage:{GPU_NAME}:0:0:100|"
+	export_stats_json["Gpu_Wattage"] = 0
+	
+	data += f"Temperature:{GPU_NAME}:0:0:100|"
+	export_stats_json["Gpu_Temperature"] = 0
+	
+	return data
+	
+	
 #client handling thread
 def handle_client(client_socket):
 	try: 
@@ -431,12 +522,13 @@ def main():
 	clients = []
 	global WORKING_DIR
 	WORKING_DIR = normalize_path(run_command(_commands[Commands.WORKING_DIR]))
+	
+	# Write placeholder data for allowing the network adapt to the data
 	global most_recent_pc_info_str
-	most_recent_pc_info_str = ""
-	global most_recent_iostat_str
-	most_recent_iostat_str = ""
-	global most_recent_ifstat_str
-	most_recent_ifstat_str = ""
+	most_recent_pc_info_str = write_placeholder_data()
+	
+	# Wait 2 sec to have all data already written
+	time.sleep(2)
 	
 	# the hardware info collect loop
 	def collect():
@@ -469,12 +561,12 @@ def main():
 	ifstat_handler = Thread(target=run_ifstat, args=())
 	ifstat_handler.start()
 	
-	# Wait 2 sec to have all data already written
-	time.sleep(2)
-	
 	# the tcp server loop running on the main thread
 	while not GLOBAL_EXIT:
 		try:
+			# wait a bit to give the network the chance to adapt to the connections
+			time.sleep(4)
+		
 			# When a client connects we receive the 
 			# client socket into the client variable, and 
 			# the remote connection details into the addr variable
