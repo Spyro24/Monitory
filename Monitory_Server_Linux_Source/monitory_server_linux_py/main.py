@@ -8,14 +8,16 @@ import os
 from string import Template
 from time import localtime, strftime
 import json
+import signal
+import sys
 
 
-ALLOW_ONLY_INTERNAL_SOCKET_IP = True
 CPU_NAME = "Compute Unit"
 GPU_NAME = "Graphics"
 
 GLOBAL_EXIT = False
 WORKING_DIR = ""
+RUN_FOREVER = False
 
 bind_ip = "0.0.0.0"
 bind_port = 54000
@@ -83,6 +85,24 @@ _commands[Commands.STATS_UTIL] = Template('turbostat --quiet --interval=$sec --n
 # c1 c2 c3 > Busy%,PkgWatt,PkgTmp
 _commands[Commands.SPLIT_STATS] = Template('echo "$input" | while read c1 c2 c3; do echo $c_idx; done')
 
+def signal_handler(signal, frame):
+	exit(0)
+	# Perform cleanup tasks here
+	print("Ctrl+C pressed. Cleaning up and exiting/restarting...")
+	
+	dispose()
+	
+	if RUN_FOREVER:
+		print("Restart server in 5 sec ...")
+		time.sleep(5)
+	
+		global GLOBAL_EXIT
+		GLOBAL_EXIT = False
+		main()
+	
+	print("exiting... make sure to have set --run-forever if you wish to run it forever")
+	sys.exit(0)
+
 def run_command(cmd):
 	process = os.popen(cmd)
 
@@ -95,6 +115,18 @@ def normalize_path(path_str):
 	path_str = os.path.normpath(path_str)
 	path_str = os.path.normcase(path_str)
 	return path_str
+	
+def get_safe_number(number, should_output_float):
+	if number is None:
+		return 0
+	try:
+		val = number.replace(",", ".")
+		if should_output_float:
+			return (float)(val)
+		else:
+			return (int)(val)
+	except ValueError:
+		return 0
 
 def run_turbostats():
 	try: 
@@ -168,21 +200,32 @@ def collect_cpu_info():
 			colums.append(col_arr)
 			
 	
-	utils = []
+	# num threads
+	num_processors = run_command("nproc --all")
+	num_processors = get_safe_number(num_processors, False)
+	
+	utils = [None] * (num_processors + 1)
+	utils_index = 0
 	watt = 0
 	tmp = 0
 	for col in colums:
 		if "Busy%" in col[0]:
 			for line in col:
 				try:
+					# we have to trigger the exception here
 					val = (float)(line)
-					utils.append(val)
+					val = get_safe_number(line, True)
+					utils[utils_index] = val
+					utils_index += 1
+					utils_index = utils_index % (num_processors + 1)
 				except:
 					continue
 		if "PkgWatt" in col[0]:
 			for line in col:
 				try:
+					# we have to trigger the exception here
 					val = (float)(line)
+					val = get_safe_number(line, True)
 					watt = val
 					break
 				except:
@@ -190,7 +233,9 @@ def collect_cpu_info():
 		if "PkgTmp" in col[0]:
 			for line in col:
 				try:
+					# we have to trigger the exception here
 					val = (float)(line)
+					val = get_safe_number(line, True)
 					tmp = val
 					break
 				except:
@@ -215,7 +260,7 @@ def collect_cpu_info():
 					if x in "0123456789,.+-":
 						tmp_str += x
 				try:
-					val = (float)(tmp_str)
+					val = get_safe_number(tmp_str, True)
 					tmp = val
 				except:
 					break
@@ -223,16 +268,22 @@ def collect_cpu_info():
 			if "K10TEMP" in s_upper:
 				found_tmp = True
 				continue
+				
 	
 	# mhz
 	mhz_str = run_command(_commands[Commands.CPU_MHZ_STR])
 	mhz_str_arr = mhz_str.split("\n")
-	mhz_arr = []
+	mhz_arr = [None] * num_processors
+	mhz_arr_index = 0
 	avg_mhz = 0
 	for mhz in mhz_str_arr:
 		try:
+			# we have to trigger the exception here
 			val = (float)(mhz)
-			mhz_arr.append(val)
+			val = get_safe_number(mhz, True)
+			mhz_arr[mhz_arr_index] = val
+			mhz_arr_index += 1
+			mhz_arr_index = mhz_arr_index % num_processors
 			
 			if avg_mhz == 0:
 				avg_mhz = val
@@ -241,17 +292,16 @@ def collect_cpu_info():
 		except:
 			pass
 	
-	
 	global export_stats_json
 	export_stats_json["Cpu_Utility_Total"] = avg_util
 	data = f"Cpu_Utility:Total:{avg_util}:0:100|"
-	for i in range(len(utils)):
+	for i in range(num_processors):
 		data += f"Cpu_Utility:{i}:{utils[i]}:0:100|"
 		export_stats_json["Cpu_Utility_Thread"][i] = utils[i]
 	
 	export_stats_json["Cpu_Clock_Average"] = avg_mhz
 	data += f"Cpu_Clock:Total:{avg_mhz}:0:100|"
-	for i in range(len(mhz_arr)):
+	for i in range(num_processors):
 		data += f"Cpu_Clock:{i}:{mhz_arr[i]}:0:100|"
 		export_stats_json["Cpu_Clock_Thread"][i] = mhz_arr[i]
 	
@@ -278,11 +328,14 @@ def collect_cpu_memory():
 		
 		return data
 	
-	data += f"Cpu_Memory:Used:{(float)(memory_str_arr[1])}:0:100|"
-	data += f"Cpu_Memory:Available:{(float)(memory_str_arr[0]) - (float)(memory_str_arr[1])}:0:100|"
+	used_mem = get_safe_number(memory_str_arr[1], True)
+	max_mem = get_safe_number(memory_str_arr[0], True)
+	
+	data += f"Cpu_Memory:Used:{used_mem}:0:100|"
+	data += f"Cpu_Memory:Available:{max_mem - used_mem}:0:100|"
 		
-	export_stats_json["Cpu_Memory_Available"] = (float)(memory_str_arr[0]) - (float)(memory_str_arr[1])
-	export_stats_json["Cpu_Memory_Used"] = memory_str_arr[1]
+	export_stats_json["Cpu_Memory_Available"] = max_mem - used_mem
+	export_stats_json["Cpu_Memory_Used"] = used_mem
 		
 	return data
 
@@ -316,9 +369,9 @@ def collect_disks():
 		row_arr = row.split(" ")
 		row_arr = [x for x in row_arr if x.strip()]
 		val = row_arr[util_index]
-		val = val.replace(",", ".")
-		data += f"Storage_Load:{row_arr[0]}:{(float)(val)}:0:100|"
-		export_stats_json["Storage_Load"][f"{row_arr[0]}"] = (float)(val)
+		load = get_safe_number(val, True)
+		data += f"Storage_Load:{row_arr[0]}:{load}:0:100|"
+		export_stats_json["Storage_Load"][f"{row_arr[0]}"] = load
 	
 	return data
 		
@@ -337,8 +390,8 @@ def collect_net():
 		
 		return data
 		
-	up = (float)(net_str_arr[1]) * 1024
-	down = (float)(net_str_arr[0]) * 1024
+	up = get_safe_number(net_str_arr[1], True) * 1024
+	down = get_safe_number(net_str_arr[0], True) * 1024
 	
 	data = f"Upload_Speed:Total:{up}:{up}:0|"
 	export_stats_json["Net_Upload_Speed"] = up
@@ -375,30 +428,34 @@ def collect_gpu():
 		return data
 	
 	util = run_command(_commands[Commands.GPU_UTIL])
-	data += f"Gpu_Utility:Clock:{(float)(util)}:0:100|"
-	export_stats_json["Gpu_Utility"] = (float)(util)
+	util = get_safe_number(util, True)
+	data += f"Gpu_Utility:Clock:{util}:0:100|"
+	export_stats_json["Gpu_Utility"] = util
 	
 	clock = run_command(_commands[Commands.GPU_CLOCK])
-	data += f"Gpu_Clock:Clock:{(float)(clock)}:0:100|"
-	export_stats_json["Gpu_Clock"] = (float)(clock)
+	clock = get_safe_number(clock, True)
+	data += f"Gpu_Clock:Clock:{clock}:0:100|"
+	export_stats_json["Gpu_Clock"] = clock
 	
 	mem_available = run_command(_commands[Commands.GPU_FREE_MEM])
-	mem_available = (float)(mem_available) / 1000
+	mem_available = get_safe_number(mem_available, True) / 1000
 	data += f"Gpu_Memory:Available:{mem_available}:0:100|"
 	export_stats_json["Gpu_Memory_Available"] = mem_available
 	
 	mem_used = run_command(_commands[Commands.GPU_USED_MEM])
-	mem_used = (float)(mem_used) / 1000
+	mem_used = get_safe_number(mem_used, True) / 1000
 	data += f"Gpu_Memory:Used:{mem_used}:0:100|"
 	export_stats_json["Gpu_Memory_Used"] = mem_used
 	
 	wattage = run_command(_commands[Commands.GPU_WATT])
-	data += f"Wattage:{GPU_NAME}:{(float)(wattage)}:0:100|"
-	export_stats_json["Gpu_Wattage"] = (float)(wattage)
+	wattage = get_safe_number(wattage, True)
+	data += f"Wattage:{GPU_NAME}:{wattage}:0:100|"
+	export_stats_json["Gpu_Wattage"] = wattage
 	
 	temp = run_command(_commands[Commands.GPU_TEMP])
-	data += f"Temperature:{GPU_NAME}:{(float)(temp)}:0:100|"
-	export_stats_json["Gpu_Temperature"] = (float)(temp)
+	temp = get_safe_number(temp, True)
+	data += f"Temperature:{GPU_NAME}:{temp}:0:100|"
+	export_stats_json["Gpu_Temperature"] = temp
 	
 	return data
 	
@@ -423,22 +480,21 @@ def collect_pc_info():
 	
 def write_placeholder_data():
 	num_processors = run_command("nproc --all")
-		
+	num_processors = get_safe_number(num_processors, False)
+	
 	data = ""
 	data += f"""Time_Now:00~00:0:0:0|"""
 	data += f"""Date_Now:01/01/2000:0:0:0|"""
 	
 	global export_stats_json
-	export_stats_json["Cpu_Utility_Thread"] = []
-	export_stats_json["Cpu_Clock_Thread"] = []
+	export_stats_json["Cpu_Utility_Thread"] = [None] * num_processors
+	export_stats_json["Cpu_Clock_Thread"] = [None] * num_processors
 	export_stats_json["Storage_Load"] = dict()
 	
 	data = f"Cpu_Utility:Total:0:0:100|"
 	export_stats_json["Cpu_Utility_Total"] = 0
 	for i in range((int)(num_processors)):
 		data += f"Cpu_Utility:{i}:0:0:100|"
-		export_stats_json["Cpu_Utility_Thread"].append(0)
-		export_stats_json["Cpu_Clock_Thread"].append(0)
 	
 	data += f"Cpu_Clock:Total:0:0:100|"
 	for i in range((int)(num_processors)):
@@ -485,6 +541,7 @@ def write_placeholder_data():
 	
 #client handling thread
 def handle_client(client_socket):
+	is_first_send = True
 	try: 
 		while not GLOBAL_EXIT:
 			#printing what the client sends 
@@ -492,8 +549,12 @@ def handle_client(client_socket):
 			# print(f"[+] Recieved: {request}")
 			# print(most_recent_pc_info_str)
 			#sending back the packet
-			client_socket.send(most_recent_pc_info_str.encode())
-			time.sleep(0.1)
+			if CPU_NAME in most_recent_pc_info_str and GPU_NAME in most_recent_pc_info_str:
+				client_socket.send(most_recent_pc_info_str.encode())
+				if is_first_send:
+					is_first_send = False
+					time.sleep(2)
+			time.sleep(0.2)
 	except Exception:
 		traceback.print_exc()
 	
@@ -507,9 +568,38 @@ def exit(delay_sec):
 	time.sleep(delay_sec)
 	global GLOBAL_EXIT
 	GLOBAL_EXIT = True
+	
+
+def dispose():
+	print("stopping threads")
+	collect_handler.join()
+	turbostats_handler.join()
+	iostat_handler.join()
+	ifstat_handler.join()
+	print(f"stopping {len(clients)} clients")
+	for client in clients:
+		client.join()
+	print("stopping server")
+	try:
+		server.shutdown(SHUT_RDWR)
+		server.close()
+	except Exception:
+		pass
 
 def main():
+	if len(sys.argv) > 1:
+		for i in range(1, len(sys.argv)):
+			msg = sys.argv[i].upper()
+			if msg == "--RUN-FOREVER":
+				global RUN_FOREVER
+				RUN_FOREVER = True
+
+	# Register the signal handler
+	signal.signal(signal.SIGINT, signal_handler)
+	signal.signal(signal.SIGPIPE, signal_handler)
+
 	# https://medium.com/@mando_elnino/python-tcp-server-b945c68a983c
+	global server
 	server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	server.bind((bind_ip, bind_port))
@@ -519,6 +609,7 @@ def main():
 	print(f"[+] Listening on port {bind_ip} : {bind_port}")
 	
 	# Defaulting values
+	global clients
 	clients = []
 	global WORKING_DIR
 	WORKING_DIR = normalize_path(run_command(_commands[Commands.WORKING_DIR]))
@@ -546,85 +637,50 @@ def main():
 		
 			time.sleep(0.05)
 	
+	global collect_handler
 	collect_handler = Thread(target=collect, args=())
 	collect_handler.start()
 	
-	# Exit Test
-	# collect_handler1 = Thread(target=exit, args=(50,))
-	# collect_handler1.start()
-	
 	# Background worker
+	global turbostats_handler
 	turbostats_handler = Thread(target=run_turbostats, args=())
 	turbostats_handler.start()
+	global iostat_handler
 	iostat_handler = Thread(target=run_iostat, args=())
 	iostat_handler.start()
+	global ifstat_handler
 	ifstat_handler = Thread(target=run_ifstat, args=())
 	ifstat_handler.start()
+	
+	global client_ips
+	client_ips = []
 	
 	# the tcp server loop running on the main thread
 	while not GLOBAL_EXIT:
 		try:
-			# wait a bit to give the network the chance to adapt to the connections
-			time.sleep(4)
-		
+			clients = [x for x in clients if x.is_alive()]
 			# When a client connects we receive the 
 			# client socket into the client variable, and 
 			# the remote connection details into the addr variable
 			client, addr = server.accept()
-			
-			# Checking if internal ip
-			can_connect = False
-			if ALLOW_ONLY_INTERNAL_SOCKET_IP:
-				ips = run_command("hostname -I")
-				local_ips = ips.split(" ")
-				for local_ip in local_ips:
-					ip_arr = local_ip.split(".")
-					if len(ip_arr):
-						comb = ""
-						for i in range(len(ip_arr) - 1):
-							comb += ip_arr[i] + "."
-						if comb in addr[0]:
-							print("using allowed prefix:", comb)
-							can_connect = True
-							break
-						
-			else:
-				can_connect = True
-			
-			if not can_connect:
-				try:
-					client.shutdown(SHUT_RDWR)
-					client.close()
-				except Exception:
-					pass
+			if addr[0] in client_ips:
+				print("cancel connecting twice")
 				continue
-			
 			print(f"[+] Accepted connection from: {addr[0]}:{addr[1]}")
 			#spin up our client thread to handle the incoming data
 			client_handler = Thread(target=handle_client, args=(client,))
 			client_handler.start()
 			clients.append(client_handler)
-			clients = [x for x in clients if x.is_alive()]
+			def whitelist_client_ip(delay, ip):
+				time.sleep(delay)
+				global client_ips
+				client_ips = [x for x in client_ips if x != ip]
+			client_whitelist_handler = Thread(target=whitelist_client_ip, args=(5,addr[0]))
 		except Exception:
 			traceback.print_exc()
 	
-	print("stopping threads")
-	collect_handler.join()
-	collect_handler1.join()
-	turbostats_handler.join()
-	iostat_handler.join()
-	ifstat_handler.join()
-	print(f"stopping {len(clients)} clients")
-	for client in clients:
-		client.join()
-	print("stopping server")
-	try:
-		server.shutdown(SHUT_RDWR)
-		server.close()
-	except Exception:
-		pass
-	print("exit code: 0")
-	return 0
+	dispose()
+	sys.exit(0)
 
 if __name__ == "__main__":
     main()                         
