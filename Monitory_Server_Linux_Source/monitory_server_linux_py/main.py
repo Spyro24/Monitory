@@ -65,6 +65,7 @@ class Commands(Enum):
 	TAIL = 15
 	STATS_UTIL = 16
 	SPLIT_STATS = 17
+	STATS_UTIL_SUDO = 18
 
 _commands = dict()
 _commands[Commands.CPU_MHZ_STR] = "cat /proc/cpuinfo | grep 'MHz' | uniq | awk '{print $4}'"
@@ -82,6 +83,8 @@ _commands[Commands.NET] = 'ifstat -nt -T 1 1 | tail -n 1 | awk \'{printf("%f\\n%
 _commands[Commands.TAIL] = Template('tail -n 200 "$file" > "$file1" && mv "$file1" "$file" --force')
 # make sure the trace loop does allow to have a nice transition between the iteration ends
 _commands[Commands.STATS_UTIL] = Template('turbostat --quiet --interval=$sec --num_iterations=$num_iter --show Busy%,PkgWatt,PkgTmp -out="$file"')
+# on debian we need sudo
+_commands[Commands.STATS_UTIL_SUDO] = Template('sudo turbostat --quiet --interval=$sec --num_iterations=$num_iter --show Busy%,PkgWatt,PkgTmp -out="$file"')
 # c1 c2 c3 > Busy%,PkgWatt,PkgTmp
 _commands[Commands.SPLIT_STATS] = Template('echo "$input" | while read c1 c2 c3; do echo $c_idx; done')
 
@@ -136,13 +139,30 @@ def run_turbostats():
 		
 		write_every_sec = 0.2
 		max_iter = 100
+		needs_sudo = False
+		expected_loop_seconds = write_every_sec * max_iter
 		
 		while not GLOBAL_EXIT:
 			try:
+				# start time for detecting turbostat is running
+				start = time.time()
+			
 				# Trim
 				run_command(_commands[Commands.TAIL].substitute(file=file_location_util, file1=file1_location_util))
 				# Write
-				run_command(_commands[Commands.STATS_UTIL].substitute(file=file_location_util, sec=write_every_sec, num_iter=max_iter))
+				# on debian we need sudo
+				if needs_sudo:
+					run_command(_commands[Commands.STATS_UTIL_SUDO].substitute(file=file_location_util, sec=write_every_sec, num_iter=max_iter))
+				else:
+					run_command(_commands[Commands.STATS_UTIL].substitute(file=file_location_util, sec=write_every_sec, num_iter=max_iter))
+					
+				end = time.time()
+				# seems turbostat is not starting, we need sudo here
+				if end - start < expected_loop_seconds * 0.7:
+					print("Trying to run turbostat with sudo")
+					needs_sudo = True
+					continue
+				
 				# Sleep
 				time.sleep(write_every_sec)
 			except Exception:
