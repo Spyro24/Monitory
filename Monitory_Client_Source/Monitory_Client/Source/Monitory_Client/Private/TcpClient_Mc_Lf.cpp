@@ -59,9 +59,9 @@ void ATcpClient_Mc_Lf::Tick(float DeltaTime)
 		}
 
 		FString Data = FString("");
-		if (!bIsConnected || !Socket.Socket || Socket.Socket && Socket.Socket->GetConnectionState() != SCS_Connected)
+		if (!bIsConnected || !Socket.Socket || (Socket.Socket && Socket.Socket->GetConnectionState() != SCS_Connected))
 		{
-			if (!Socket.Socket || Socket.Socket && Socket.Socket->GetConnectionState() != SCS_Connected)
+			if (!Socket.Socket || (Socket.Socket && Socket.Socket->GetConnectionState() != SCS_Connected))
 			{
 				CloseSocket(Socket.Socket);
 				Socket.Socket = ConnectToServer_Mc(ADataTranslate_Mc_Lf::IPAddresses[IpIdx - 1]);
