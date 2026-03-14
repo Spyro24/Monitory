@@ -79,7 +79,7 @@ _commands[Commands.GPU_TEMP] = 'nvidia-smi --query-gpu=temperature.gpu --format=
 _commands[Commands.GPU_WATT] = 'nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits'
 _commands[Commands.WORKING_DIR] = 'cd -- "$( dirname -- \'${BASH_SOURCE[0]}\' )" &> /dev/null && pwd'
 _commands[Commands.IO] = "iostat -d -x 1 2"
-_commands[Commands.NET] = 'ifstat -nt -T 1 1 | tail -n 1 | awk \'{printf("%f\\n%f", $12, $NF)}\''
+_commands[Commands.NET] = 'ifstat -nt -T 1 1 | tail -n 1 | awk \'{printf("%f\\n%f", $(NF-1), $NF)}\''
 _commands[Commands.TAIL] = Template('tail -n 200 "$file" > "$file1" && mv "$file1" "$file" --force')
 # make sure the trace loop does allow to have a nice transition between the iteration ends
 _commands[Commands.STATS_UTIL] = Template('turbostat --quiet --interval=$sec --num_iterations=$num_iter --show Busy%,PkgWatt,PkgTmp -out="$file"')
