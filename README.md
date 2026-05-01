@@ -16,13 +16,19 @@
  - Run it and when you like it add it as start up application
 
 ## Client:
-*_Monitory Client Apps are available for Android, this apps reading the TCP Data sended from the Monitory Server App to display the Hardware Infos on this Client Device_*
+*_Monitory Client Apps are available for Linux, (Android support getting removed in future), get a Linux Tablet..., this apps reading the TCP Data sended from the Monitory Server App to display the Hardware Infos on this Client Device_*
  ![Client App](Docs/Monitory_Client_1.gif)
 #### Android:
  - Navigate to the Releases and download an Android Client version
  - Install it on your Android Device, it needs to be 64 Bit, Android 8 or Higher, ES3.1 or Higher
  - Run it and Play with the customization settings
  - White List the Server IP, you can have multiple Servers and it should connect with the Server
+
+#### Linux:
+- Navigate to the Releases and download an Linux Client version
+- Linux builts are currently just x64, 64 bit arch
+- Run it and Play with the customization settings
+- White List the Server IP, you can have multiple Servers and it should connect with the Server
 
 ## Development:
  - Server Applications are written in c# .NET, open the solution and build it
