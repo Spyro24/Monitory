@@ -1008,7 +1008,7 @@ FTheme_Mc_Lf UWidgetMainMenu_Mc_Lf::LoadTheme(float& Blur, float& Blackness, boo
 	{
 		Blur = FCString::Atof(*DataArray[1]);
 		Blackness = FCString::Atof(*DataArray[2]);
-		bAnimations = (bool)FCString::Atoi(*DataArray[3]);
+		bAnimations = false;
 	}
 
 	if (CachedThemes.IsValidIndex(Index))
@@ -1020,7 +1020,7 @@ FTheme_Mc_Lf UWidgetMainMenu_Mc_Lf::LoadTheme(float& Blur, float& Blackness, boo
 
 void UWidgetMainMenu_Mc_Lf::ApplyTheme(FTheme_Mc_Lf Theme, float BlurStrength, float BlacknessAmount, bool bAnimated)
 {
-	if (const int32 Index = CachedThemes.FindLastByPredicate([&Theme](const FTheme_Mc_Lf& Other)
+	if (const int32 Index = CachedThemes.IndexOfByPredicate([&Theme](const FTheme_Mc_Lf& Other)
 	{
 		return Other.Background == Theme.Background;
 	}); Index != INDEX_NONE)

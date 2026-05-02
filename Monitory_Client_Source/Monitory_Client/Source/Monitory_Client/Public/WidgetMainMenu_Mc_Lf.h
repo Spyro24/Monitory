@@ -154,12 +154,9 @@ struct MONITORY_CLIENT_API FTheme_Mc_Lf
 
 	FTheme_Mc_Lf(){}
 	~FTheme_Mc_Lf(){}
-	
-	UPROPERTY(BlueprintReadWrite, EditAnywhere)
-	TObjectPtr<UMediaSource> Background = nullptr;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
-	TObjectPtr<UTexture2D> BackgroundFallback = nullptr;
+	TObjectPtr<UTexture2D> Background = nullptr;
 };
 
 

@@ -174,6 +174,9 @@ struct MONITORY_CLIENT_API FPCData_Mc_Lf
 
 	UPROPERTY(EditAnywhere)
 	TArray<FDataMinMaxCurrent_Mc_Lf> DownloadUploadSpeedsGraph;
+	
+	UPROPERTY(EditAnywhere)
+	FDataMinMaxCurrent_Mc_Lf IsDarkThemeEnabled;
 };
 
 

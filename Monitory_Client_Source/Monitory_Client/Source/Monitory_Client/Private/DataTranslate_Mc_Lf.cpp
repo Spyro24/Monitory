@@ -348,6 +348,18 @@ void ADataTranslate_Mc_Lf::CreatePCData(FPCData_Mc_Lf& FromData, const FString& 
 
 				UploadSpeedRaw.Add(Range);
 			}
+			
+			if (Type == "Dark_Mode")
+			{
+				FDataMinMaxCurrent_Mc_Lf Range = FDataMinMaxCurrent_Mc_Lf();
+				Range.Index = INDEX_NONE;
+				Range.SetCurrent(Current);
+				Range.SetMin(Min);
+				Range.SetMax(Max);
+				
+				// Currently left blank for future design ideas -> returns 1 for dark mode enabled 0 for light mode
+				FromData.IsDarkThemeEnabled = Range;
+			}
 		}
 	}
 
@@ -704,7 +716,7 @@ bool ADataTranslate_Mc_Lf::SaveDataToInternalStorage(const FString& DataToSave, 
 	if (IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile(); PlatformFile.
 		CreateDirectoryTree(*SaveDirectory))
 	{
-		UE_LOG(LogTemp, Display, TEXT("Saving Data to: %s"), *SavePath);
+		UE_LOG(LogTemp, Display, TEXT("Saving Data -> %s to: %s"), *DataToSave, *SavePath);
 		FFileHelper::SaveStringToFile(DataToSave, *SavePath);
 		return true;
 	}
