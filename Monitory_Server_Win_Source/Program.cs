@@ -225,7 +225,7 @@ namespace Monitory_Server_Windows
 
             Program main = new Program();
             main.server_start(); //starting the server
-
+            
             while (!bNeedExit)
             {
                 _dataToSend = CollectData();
@@ -417,6 +417,10 @@ namespace Monitory_Server_Windows
                     $"Upload_Speed:{uploadValue.Key}:{uploadValue.Value.X}:{uploadValue.Value.Y}:{uploadValue.Value.Z}|";
                 properties += upload;
             }
+            
+            int isDarkMode = RunIsDarkMode() ?  1 : 0;
+            string darkMode = $"Dark_Mode:{isDarkMode}|";
+            properties += darkMode;
 
             properties += "!";
 
@@ -736,6 +740,61 @@ namespace Monitory_Server_Windows
 
             // Close the process
             process.Close();
+        }
+        
+        public static bool RunIsDarkMode()
+        {
+            // Create a new process start info
+            ProcessStartInfo processStartInfo = new ProcessStartInfo
+            {
+                FileName = "cmd.exe", // Specify the command prompt executable
+                RedirectStandardInput = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true
+            };
+
+            // Create a new process
+            Process process = new Process { StartInfo = processStartInfo };
+
+            // Start the process
+            process.Start();
+
+            // Execute the w32tm /resync command
+            using (var sw = process.StandardInput)
+            {
+                if (sw.BaseStream.CanWrite)
+                {
+                    sw.WriteLine("reg query \"HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize\" /v AppsUseLightTheme");
+                }
+            }
+
+            // Wait for the process to exit
+            process.WaitForExit();
+
+            // Display the output (optional)
+            string output = process.StandardOutput.ReadToEnd();
+
+            var outputStringList = output.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+            //Console.WriteLine(output);
+
+            // Close the process
+            process.Close();
+            
+            foreach (string s in outputStringList)
+            {
+                if (s.Contains("0x"))
+                {
+                    if (s.Contains("0x1"))
+                    {
+                        return false;
+                    }
+
+                    return true;
+                }
+            }
+
+            return true;
         }
     }
 }
