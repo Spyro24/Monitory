@@ -419,7 +419,7 @@ namespace Monitory_Server_Windows
             }
             
             int isDarkMode = RunIsDarkMode() ?  1 : 0;
-            string darkMode = $"Dark_Mode:{isDarkMode}|";
+            string darkMode = $"Dark_Mode:0:{isDarkMode}:0:0|";
             properties += darkMode;
 
             properties += "!";
