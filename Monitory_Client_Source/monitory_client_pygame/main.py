@@ -1,5 +1,5 @@
 import pygame
-# import time
+import time
 
 from src.draw_win import *
 from src.tcp import *
@@ -23,7 +23,7 @@ exit = False
 
 app_window = AppWindow()
 
-tcp_thread = start_tcp_client("192.168.2.84")
+tcp_thread = start_tcp_client("0.0.0.0")
 
 # /home/asus-pc/Documents/bay/dev/sync/monitory_app_pygame/assets/ttf/FiraCode-Light.ttf
 
@@ -31,23 +31,36 @@ tcp_thread = start_tcp_client("192.168.2.84")
 # text = font.render('GeeksForGeeks', True, green, blue)
 # textRect = text.get_rect()
     
+render = True
+nextRender = time.time()
 
 while not exit:
-    canvas.fill(black_color)
+    loopTime = time.time()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             exit = True
-
-    app_window.draw_window(canvas)
+        # Redraw the window after resize to avoid graphical artefacts
+        elif event == pygame.WINDOWRESIZED:
+            render = True
     
-    pygame.display.update()
+    # check if its time to render
+    if loopTime > nextRender:
+        render = True
+        nextRender = loopTime + 1 / FPS
+    # wait about 2 ms if its not render time to avoid wasting of CPU cycles
+    else:
+        time.sleep(0.002)
     
-    # 1 / 10 FPS > 0.1 * 1000 > 100 ms
-    ms = int(1.0 / float(FPS) * 1000.0)
-    pygame.time.wait(ms)
-    # time.sleep(0.2)
+    # Render the window
+    if render:
+        canvas.fill((0,0,0))
+        app_window.draw_window(canvas)
+        pygame.display.flip()
+        render = False
     
 # At this point something crashed or we exit
+# Close the Window and quit pygame
+pygame.quit()
 # End networking thread
 stop_tcp_client()
   
