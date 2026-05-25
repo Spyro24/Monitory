@@ -496,6 +496,8 @@ def collect_pc_info():
 	data += collect_net()
 	data += collect_gpu()
 	
+	data += "!"
+	
 	return data
 	
 def write_placeholder_data():
@@ -555,6 +557,8 @@ def write_placeholder_data():
 	
 	data += f"Temperature:{GPU_NAME}:0:0:100|"
 	export_stats_json["Gpu_Temperature"] = 0
+	
+	data += "!";
 	
 	return data
 	
