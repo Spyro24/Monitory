@@ -1,0 +1,53 @@
+import pygame
+# import time
+
+from src.draw_win import *
+from src.tcp import *
+
+FPS = 10
+
+pygame.init()
+
+white_color = (255,255,255)
+black_color = (0, 0, 0)
+
+# CREATING CANVAS
+canvas = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
+# DISPLAYSURF = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+
+# TITLE OF CANVAS
+pygame.display.set_caption("Monitory Client")
+
+# image = pygame.image.load("assets/Screenshot.png")
+exit = False
+
+app_window = AppWindow()
+
+tcp_thread = start_tcp_client("192.168.2.84")
+
+# /home/asus-pc/Documents/bay/dev/sync/monitory_app_pygame/assets/ttf/FiraCode-Light.ttf
+
+# font = pygame.font.Font('assets/ttf/FiraCode-Light.ttf', 32)
+# text = font.render('GeeksForGeeks', True, green, blue)
+# textRect = text.get_rect()
+    
+
+while not exit:
+    canvas.fill(black_color)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            exit = True
+
+    app_window.draw_window(canvas)
+    
+    pygame.display.update()
+    
+    # 1 / 10 FPS > 0.1 * 1000 > 100 ms
+    ms = int(1.0 / float(FPS) * 1000.0)
+    pygame.time.wait(ms)
+    # time.sleep(0.2)
+    
+# At this point something crashed or we exit
+# End networking thread
+stop_tcp_client()
+  
