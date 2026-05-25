@@ -29,6 +29,7 @@ class AppWindow:
         self.disk_slice = self.theme.get_disk_slice()
         self.gpu_slice = self.theme.get_gpu_slice()
         self.vram_slice = self.theme.get_vram_slice()
+        self.net_slice = self.theme.get_net_slice()
         
         # 1st ROW
         self.cpu_plot = Plot(screen_p_x=0.33, screen_p_y=0.45, \
@@ -56,8 +57,16 @@ class AppWindow:
                                 size_p_x=0.30, size_p_y=0.2, hw_name='VRAM', \
                                 app_theme_slice=self.vram_slice, \
                                 label_font=self.default_font, grid_p=self.grid_p)
+                                
+        self.net_plot = Plot(screen_p_x=0.98, screen_p_y=0.7, \
+                                size_p_x=0.30, size_p_y=0.2, hw_name='NET', \
+                                app_theme_slice=self.net_slice, \
+                                label_font=self.default_font, grid_p=self.grid_p)
 
     def draw_window(self, screen):
+        # background
+        screen.fill(self.theme.get_screen_color())
+        
         # COU Util
         cpu_util = export_stats_json["Cpu_Utility_Thread"]
                         
@@ -124,4 +133,29 @@ class AppWindow:
         
         self.gpu_ram_plot.update_val(" {:.1f}%".format(gpu_vram_per[0] * 100), " {:.1f}GB".format(gpu_mem_used), \
                                 app_theme_slice=self.vram_slice, \
+                                label_font=self.default_font)
+        
+        # Net
+        net_up = export_stats_json["Net_Upload_Speed"]
+        if net_up <= 0:
+            net_up = 1.0
+        net_down = export_stats_json["Net_Download_Speed"]
+        if net_down <= 0:
+            net_down = 1.0
+        
+        net_max = max(net_up, net_down)
+        if net_max <= 0:
+            net_max = 1.0
+        net_up_p = net_up / net_max
+        net_down_p = net_down / net_max
+        
+        # The lines should stay in the middle of the graph
+        net_up_p *= 0.5
+        net_down_p *= 0.5
+        
+        net_traffic = [net_down_p, net_up_p]
+        
+        self.net_plot.build(screen, net_traffic, app_theme_slice=self.net_slice)
+        self.net_plot.update_val("↑ {:.1f}Mbps  ".format(net_up / 100000), "↓ {:.1f}Mbps".format(net_down / 100000), \
+                                app_theme_slice=self.net_slice, \
                                 label_font=self.default_font)

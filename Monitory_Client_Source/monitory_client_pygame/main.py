@@ -33,7 +33,6 @@ tcp_thread = start_tcp_client("192.168.2.84")
     
 
 while not exit:
-    canvas.fill(black_color)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             exit = True

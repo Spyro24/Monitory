@@ -119,7 +119,7 @@ class Graph:
                 pre_y = (h * self.screen_p_y) - (self.data_slice[idx_x - 1][idx_y] * (h * self.size_p_y))
                 
                 if app_theme_slice.graph_line_color[3] < 255:
-                    wanted_color = get_color_safe(idx_y, num_data / 2, 255)
+                    wanted_color = get_color_safe(idx_y, app_theme_slice.line_color_offset, 255)
                 else:
                     wanted_color = app_theme_slice.graph_line_color
                 
