@@ -10,6 +10,24 @@ pygame.init()
 
 white_color = (255,255,255)
 black_color = (0, 0, 0)
+IP = "0.0.0.0"
+
+# Functions
+def checkValidIP(IP: str):
+    valid = True
+    # To make sure that the prgramm dosnt crash if somethin goes wrong while checking the IP
+    try:
+        fourLetterCode = IP.strip().split(".")
+        if len(fourLetterCode) != 4:
+            valid = False
+        for position in fourLetterCode:
+            if not position.isnumeric():
+                valid = False
+            elif int(position) > 255:
+                valid = False
+    except BaseException:
+        valid = False
+    return valid
 
 # CREATING CANVAS
 canvas = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
@@ -23,14 +41,32 @@ exit = False
 
 app_window = AppWindow()
 
-tcp_thread = start_tcp_client("0.0.0.0")
-
 # /home/asus-pc/Documents/bay/dev/sync/monitory_app_pygame/assets/ttf/FiraCode-Light.ttf
 
-# font = pygame.font.Font('assets/ttf/FiraCode-Light.ttf', 32)
+font = pygame.font.Font('assets/ttf/FiraCode-Light.ttf', 32)
 # text = font.render('GeeksForGeeks', True, green, blue)
 # textRect = text.get_rect()
+startup = True
+while startup:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            raise SystemExit # We have to use it here because exit is used and would throw a error that a boolean isnt callable
+        
+        elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    if checkValidIP(IP):
+                        startup = False
+                elif event.key == pygame.K_BACKSPACE:
+                    IP = IP[:-1]
+                else:
+                    IP += event.unicode
     
+    canvas.fill(black_color)
+    canvas.blit(font.render(f"IP: {IP}", True, (255,255,255)), (10,10))
+    pygame.display.flip()
+
+tcp_thread = start_tcp_client(IP)
 render = True
 nextRender = time.time()
 
