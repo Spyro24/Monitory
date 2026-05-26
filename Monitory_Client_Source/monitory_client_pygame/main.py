@@ -3,6 +3,11 @@ import time
 
 from src.draw_win import *
 from src.tcp import *
+import src.config_manager
+
+# APP infos
+DEVELOPER = "developer" # Replace this with your developer name
+APP_NAME = "python-monitory-client" # replace this with the actual app name
 
 FPS = 10
 
